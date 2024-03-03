@@ -1,44 +1,41 @@
-import fitz  # PyMuPDF
+import fitz
 import tkinter as tk
 from tkinter import filedialog
 import pyttsx3
+import speech_recognition as sr
 
 class PDFReader:
     def __init__(self, root):
         self.root = root
         self.root.title("PDF Reader")
 
-        self.text_widget = tk.Text(root, wrap="word", width=80, height=20, font=("Arial", 12))
+        self.text_widget = tk.Text(root, wrap="word", width=80, height=20)
         self.text_widget.grid(row=0, column=0, columnspan=2, padx=10, pady=(10,5), sticky="nsew")
+        self.text_widget.config(font=("Helvetica", 12))  
 
-        self.open_button = tk.Button(root, text="Open PDF", command=self.open_pdf, bg="#4CAF50", fg="white", font=("Arial", 12, "bold"))
+        self.open_button = tk.Button(root, text="Open PDF", command=self.open_pdf, width=10)
         self.open_button.grid(row=1, column=0, padx=5, pady=(0,10), sticky="w")
 
-        self.read_aloud_button = tk.Button(root, text="Read Aloud", command=self.read_aloud, bg="#FFC107", fg="white", font=("Arial", 12, "bold"))
+        self.read_aloud_button = tk.Button(root, text="Read Aloud", command=self.read_aloud, width=10)
         self.read_aloud_button.grid(row=1, column=1, padx=5, pady=(0,10), sticky="e")
 
-        self.pause_button = tk.Button(root, text="Pause", command=self.pause_reading, bg="#2196F3", fg="white", font=("Arial", 12, "bold"))
+        self.pause_button = tk.Button(root, text="Pause", command=self.pause_reading, width=10)
         self.pause_button.grid(row=2, column=0, padx=5, pady=(0,10), sticky="w")
-        self.pause_button.config(state=tk.DISABLED)
+        self.pause_button.config(state=tk.DISABLED)  
 
-        self.stop_button = tk.Button(root, text="Stop", command=self.stop_reading, bg="#F44336", fg="white", font=("Arial", 12, "bold"))
+        self.stop_button = tk.Button(root, text="Stop", command=self.stop_reading, width=10)
         self.stop_button.grid(row=2, column=1, padx=5, pady=(0,10), sticky="e")
-        self.stop_button.config(state=tk.DISABLED)
+        self.stop_button.config(state=tk.DISABLED)  
 
         self.tts_engine = pyttsx3.init()
-        self.tts_engine.setProperty('rate', 150)  # Adjust reading speed
+        self.tts_engine.setProperty('rate', 150)  
         self.is_paused = False
 
-        self.status_bar = tk.Label(root, text="", bd=1, relief=tk.SUNKEN, anchor=tk.W, font=("Arial", 10))
+        self.status_bar = tk.Label(root, text="", bd=1, relief=tk.SUNKEN, anchor=tk.W)
         self.status_bar.grid(row=3, column=0, columnspan=2, sticky="ew")
 
-        # Configure row and column weights
-        root.grid_rowconfigure(0, weight=1)
-        root.grid_rowconfigure(1, weight=0)
-        root.grid_rowconfigure(2, weight=0)
-        root.grid_rowconfigure(3, weight=0)
-        root.grid_columnconfigure(0, weight=1)
-        root.grid_columnconfigure(1, weight=1)
+        self.voice_recognizer = sr.Recognizer()
+        self.voice_recognizer.energy_threshold = 4000
 
     def open_pdf(self):
         file_path = filedialog.askopenfilename(filetypes=[("PDF files", "*.pdf")])
@@ -81,12 +78,12 @@ class PDFReader:
             self.is_paused = True
             self.tts_engine.pause()
             self.status_bar.config(text="Paused.")
-            self.pause_button.config(text="Resume", bg="#FF9800")
+            self.pause_button.config(text="Resume")
         else:
             self.is_paused = False
             self.tts_engine.resume()
             self.status_bar.config(text="Reading resumed.")
-            self.pause_button.config(text="Pause", bg="#2196F3")
+            self.pause_button.config(text="Pause")
 
     def stop_reading(self):
         self.tts_engine.stop()
@@ -105,9 +102,31 @@ class PDFReader:
         self.pause_button.config(state=tk.DISABLED)
         self.stop_button.config(state=tk.DISABLED)
 
-
+    def start_voice_recognition(self):
+        try:
+            with sr.Microphone() as source:
+                print("Listening for 'PDF' command...")
+                self.status_bar.config(text="Listening for 'PDF' command...")
+                self.voice_recognizer.adjust_for_ambient_noise(source)
+                audio = self.voice_recognizer.listen(source, timeout=5)
+                command = self.voice_recognizer.recognize_google(audio).lower()
+                if "pdf" in command:
+                    self.open_pdf()
+                else:
+                    print("Command not recognized.")
+                    self.status_bar.config(text="Command not recognized.")
+        except sr.RequestError as e:
+            print("Could not request results; {0}".format(e))
+        except sr.UnknownValueError:
+            print("Unknown command")
+        except sr.WaitTimeoutError:
+            print("Timeout waiting for command")
+        finally:
+            self.status_bar.config(text="")
+            
 if __name__ == "__main__":
     root = tk.Tk()
-    root.geometry("600x400")  # Set initial window size
+    root.geometry("600x400")  
     pdf_reader = PDFReader(root)
+    pdf_reader.start_voice_recognition()  # Start listening for voice commands
     root.mainloop()
